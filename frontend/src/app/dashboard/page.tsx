@@ -9,6 +9,9 @@ import {
   TrendingUp, TrendingDown, Lightbulb, User, LogOut, Crown
 } from 'lucide-react';
 import UploadContent from '@/components/UploadContent';
+import { useUploadJD } from '@/hooks/useUploadJD';
+import { useResumeProfile } from '@/hooks/useResumeProfile';
+import { useATSCheck } from '@/hooks/useATSCheck';
 
 export default function Dashboard() {
   const [step, setStep] = useState<'upload' | 'analyzing' | 'report' | 'generating' | 'result'>('upload');
@@ -17,6 +20,11 @@ export default function Dashboard() {
   const [outputType, setOutputType] = useState<'email' | 'letter' | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [generationProgress, setGenerationProgress] = useState(0);
+
+  // ATS things here
+  const [atsReport, setAtsReport] = useState<any[]>([]);
+  const [atsMessage, setAtsMessage] = useState<string>("");
+  const [atsColor, setAtsColor] = useState<string>("");
 
   // Mock data for resume report
   const reportData = {
@@ -42,10 +50,10 @@ export default function Dashboard() {
   };
 
   const stages = [
-    { name: 'Parsing Resume', status: analysisProgress > 0 ? 'complete' : 'pending' },
+    { name: 'Extracting Resume Profile', status: analysisProgress > 0 ? 'complete' : 'pending' },
     { name: 'Analyzing Job Description', status: analysisProgress > 33 ? 'complete' : analysisProgress > 0 ? 'active' : 'pending' },
-    { name: 'Matching Skills', status: analysisProgress > 66 ? 'complete' : analysisProgress > 33 ? 'active' : 'pending' },
-    { name: 'Generating Report', status: analysisProgress === 100 ? 'complete' : analysisProgress > 66 ? 'active' : 'pending' }
+    { name: 'Checking ATS Friendliness', status: analysisProgress > 66? 'complete' : analysisProgress > 33 ? 'active' : 'pending' },
+    { name: 'Generating Report', status: analysisProgress > 90? 'complete' : analysisProgress > 66 ? 'active' : 'pending' },
   ];
 
   const generationStages = [
@@ -62,21 +70,64 @@ export default function Dashboard() {
     }
   };
 
-  const handleAnalyze = () => {
+  const atsMessageColor = (value: number | string) => {
+  const num = Number(value); // convert to number just in case
+  if (num >= 90){
+    setAtsMessage("Excellent");
+    setAtsColor("text-emerald-400");
+  } else if (num >= 80){
+    setAtsMessage("Great");
+    setAtsColor("text-lime-400");
+  } else if (num >= 70){
+    setAtsMessage("Good");
+    setAtsColor("text-yellow-400");
+  } else if (num >= 60){
+    setAtsMessage("Average");
+    setAtsColor("text-amber-400");
+  } else {
+    setAtsMessage("Not Good");
+    setAtsColor("text-red-400");
+  }
+};
+
+
+  // -------------------- React Query Hooks --------------------
+  const uploadResumeHook = useResumeProfile({
+    onSuccess: () => setAnalysisProgress(33),
+    onError: (err) => console.error(err)
+  });
+
+  const uploadJDHook = useUploadJD({
+    onSuccess: () => setAnalysisProgress(66),
+    onError: (err) => console.error(err)
+  });
+
+  const atsCheckHook = useATSCheck({
+    onSuccess: () => setAnalysisProgress(90),
+    onError: (err) => console.error(err)
+  });
+
+  const handleAnalyze = async () => {
+    if (!resumeFile || !jobDescription) return;
     setStep('analyzing');
     setAnalysisProgress(0);
-    
-    // Simulate progressive analysis
-    const interval = setInterval(() => {
-      setAnalysisProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => setStep('report'), 500);
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 300);
+
+    try {
+      // Step 1: Extract Resume Profile
+      const resumeProfile = await uploadResumeHook.mutateAsync(resumeFile);
+
+      // Step 2: Analyze Job Description
+      const jdKeywords =  await uploadJDHook.mutateAsync(jobDescription);
+      // Step 3: ATS Check
+      const atsreport = await atsCheckHook.mutateAsync(resumeFile);
+      setAtsReport(atsreport);
+      atsMessageColor(atsReport.score || 0)
+      // Step 4: Report ready
+      setAnalysisProgress(100);
+      setStep('report');
+    } catch (err) {
+      console.error("Analysis failed:", err);
+    }
   };
 
   const handleGenerateCoverLetter = (type: 'email' | 'letter') => {
@@ -220,8 +271,8 @@ Best regards,
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-gray-400 mb-1">ATS Friendliness</p>
-                      <p className="text-4xl font-bold text-emerald-400">{reportData.atsScore}%</p>
-                      <p className="text-sm text-gray-500 mt-1">Excellent</p>
+                      <p className={`text-4xl font-bold ${atsColor}`}>{atsReport?.score}%</p>
+                      <p className="text-sm text-gray-500 mt-1">{atsMessage}</p>
                     </div>
                     <BarChart3 className="w-16 h-16 text-emerald-400 opacity-50" />
                   </div>
@@ -243,7 +294,26 @@ Best regards,
             </div>
 
             {/* Detailed Analysis */}
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="flex flex-wrap md:grid-cols-3 gap-6 ">
+              {/* Suggestions */}
+              <Card className="border-gray-800 bg-gray-900">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-white">
+                    <Lightbulb className="w-5 h-5 mr-2 text-blue-400" />
+                    Suggestions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {atsReport.suggestions.map((item, index) => (
+                      <li key={index} className="flex items-start space-x-2">
+                        <ChevronRight className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                        <span className="text-sm text-gray-300">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
               {/* Matching Keywords */}
               <Card className="border-gray-800 bg-gray-900">
                 <CardHeader>
@@ -284,25 +354,7 @@ Best regards,
                 </CardContent>
               </Card>
 
-              {/* Suggestions */}
-              <Card className="border-gray-800 bg-gray-900">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-white">
-                    <Lightbulb className="w-5 h-5 mr-2 text-blue-400" />
-                    Suggestions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {reportData.suggestions.slice(0, 3).map((item, index) => (
-                      <li key={index} className="flex items-start space-x-2">
-                        <ChevronRight className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-                        <span className="text-sm text-gray-300">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+              
             </div>
 
             {/* Generate Cover Letter Section */}

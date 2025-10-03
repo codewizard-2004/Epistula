@@ -1,3 +1,4 @@
+"use client"
 import React from 'react'
 import { 
     Card,
@@ -66,7 +67,7 @@ const UploadContent: React.FC<UploadContentProps> = ({resumeFile, handleFileUplo
               </Card>
 
               {/* Job Description */}
-              <Card className="border-gray-800 bg-gray-900">
+              <Card className="border-gray-800 bg-gray-900 lg:w-[600px]">
                 <CardHeader>
                   <CardTitle className="flex items-center text-white">
                     <FileText className="w-5 h-5 mr-2 text-blue-400" />
@@ -77,7 +78,7 @@ const UploadContent: React.FC<UploadContentProps> = ({resumeFile, handleFileUplo
                 <CardContent>
                   <Textarea
                     placeholder="Paste the job description here..."
-                    className="min-h-[180px] bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-blue-500"
+                    className="min-h-[180px] w-[99%] bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-blue-500"
                     value={jobDescription}
                     onChange={(e: any) => setJobDescription(e.target.value)}
                   />
