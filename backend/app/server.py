@@ -2,7 +2,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from config import Settings
-from routes import upload
+from routes import upload, generation
 
 app = FastAPI(title="Epistula Backend", version="1.0.0")
 environment = Settings().get_environment()
@@ -20,7 +20,22 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {"status": "OK",
-            "message": "Welcome to the Epistula Server!"}
+            "message": "Welcome to the Epistula Server!",
+            "version": "1.0.0",
+            "environment": environment,
+            "routes": {"api/upload":{
+                "POST /jd": "Upload job description to extract keywords",
+                "POST /resume": "Upload resume to extract profile information",
+                "POST /ats": "Upload resume and get the ATS friendliness report"
+                    },
+                "api/generate":{
+                    "POST /resume-report": "Generate resume report comparing resume and job description",
+                    "POST /cover-letter": "Generate cover letter based on resume and job description",
+                    "POST /cover-email": "Generate email cover letter based on resume and job description"
+                }
+            }
+        }
 
 
 app.include_router(upload.router, prefix="/api/upload", tags=["Upload"])
+app.include_router(generation.router, prefix="/api/generate", tags=["Generation"])
