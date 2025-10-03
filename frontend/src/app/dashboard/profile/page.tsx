@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { 
   FileText, User, CreditCard, History, Trash2, Settings, 
   Crown, Calendar, Download, ArrowLeft, AlertTriangle, 
-  CheckCircle, Clock, Mail, Shield, Bell
+  CheckCircle, Clock, Mail, Bell
 } from 'lucide-react';
 
 export default function ProfilePage() {
@@ -394,7 +394,7 @@ export default function ProfilePage() {
                         </p>
                         <Button 
                           variant="outline" 
-                          className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+                          className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-white"
                           onClick={() => setShowDeleteModal(true)}
                         >
                           Delete My Account
