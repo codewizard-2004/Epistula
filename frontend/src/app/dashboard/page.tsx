@@ -2,11 +2,10 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { 
-  FileText, Upload, Zap, CheckCircle, AlertCircle, Download, 
+  FileText, CheckCircle, AlertCircle, Download, 
   Copy, Mail, FileOutput, Loader2, ChevronRight, BarChart3,
-  TrendingUp, TrendingDown, Lightbulb, User, LogOut, Crown
+  TrendingUp, Lightbulb, User, LogOut, Crown
 } from 'lucide-react';
 import UploadContent from '@/components/UploadContent';
 import { useUploadJD } from '@/hooks/useUploadJD';
@@ -14,6 +13,10 @@ import { useResumeProfile } from '@/hooks/useResumeProfile';
 import { useATSCheck } from '@/hooks/useATSCheck';
 import { useResumeReport } from '@/hooks/useResumeReport';
 import { useGenerateCoverLetter } from '@/hooks/useGenerateCoverLetter';
+import { useGenerateEmail } from '@/hooks/useGenerateEmail';
+import LoadingAnimation from '@/components/LoadingAnimation';
+import StarRating from '@/components/StarRating';
+import { toast } from 'sonner';
 
 export default function Dashboard() {
   const [step, setStep] = useState<'upload' | 'analyzing' | 'report' | 'generating' | 'result'>('upload');
@@ -39,6 +42,10 @@ export default function Dashboard() {
     pages: 1,
     cover_letter: ""
   });
+
+  // Rating state
+  const [userRating, setUserRating] = useState<number>(0);
+  const [hasRated, setHasRated] = useState<boolean>(false);
 
 
   const stages = [
@@ -84,7 +91,7 @@ export default function Dashboard() {
   }
 };
 
-const resumeReportMessageColor = (value: number | string) => {
+  const resumeReportMessageColor = (value: number | string) => {
   const num = Number(value); 
   if (num >= 90){
     setResumeReportMessage("Strong Match");
@@ -104,31 +111,85 @@ const resumeReportMessageColor = (value: number | string) => {
   }
 };
 
+  const handleRatingChange = (rating: number) => {
+    setUserRating(rating);
+    setHasRated(true);
+    // Here you could also send the rating to your backend for analytics
+    console.log(`User rated ${outputType} with ${rating} stars`);
+  };
+
 
   // -------------------- React Query Hooks --------------------
   const uploadResumeHook = useResumeProfile({
     onSuccess: () => setAnalysisProgress(33),
-    onError: (err) => console.error(err)
+    onError: (err) => {
+      console.error('Resume upload failed:', err);
+      toast.error('Failed to analyze resume', {
+        description: 'Please check your file and try again.',
+        duration: 5000,
+      });
+      setStep('upload');
+    }
   });
 
   const uploadJDHook = useUploadJD({
     onSuccess: () => setAnalysisProgress(50),
-    onError: (err) => console.error(err)
+    onError: (err) => {
+      console.error('Job description upload failed:', err);
+      toast.error('Failed to analyze job description', {
+        description: 'Please check your input and try again.',
+        duration: 5000,
+      });
+      setStep('upload');
+    }
   });
 
   const atsCheckHook = useATSCheck({
     onSuccess: () => setAnalysisProgress(80),
-    onError: (err) => console.error(err)
+    onError: (err) => {
+      console.error('ATS check failed:', err);
+      toast.error('Failed to check ATS compatibility', {
+        description: 'Please try again or contact support.',
+        duration: 5000,
+      });
+      setStep('upload');
+    }
   });
 
   const resumeReportHook = useResumeReport({
     onSuccess: () => setAnalysisProgress(90),
-    onError: (err) => console.log(err)
+    onError: (err) => {
+      console.error('Resume report generation failed:', err);
+      toast.error('Failed to generate resume report', {
+        description: 'Please try again or contact support.',
+        duration: 5000,
+      });
+      setStep('upload');
+    }
   })
 
   const generateCoverLetterHook = useGenerateCoverLetter({
     onSuccess: () => setStep('result'),
-    onError: (err) => console.log(err)
+    onError: (err) => {
+      console.error('Cover letter generation failed:', err);
+      toast.error('Failed to generate cover letter', {
+        description: 'Please try again or contact support.',
+        duration: 5000,
+      });
+      setStep('report');
+    }
+  })
+
+  const generateEmailHook = useGenerateEmail({
+    onSuccess: () => setStep('result'),
+    onError: (err) => {
+      console.error('Email generation failed:', err);
+      toast.error('Failed to generate email', {
+        description: 'Please try again or contact support.',
+        duration: 5000,
+      });
+      setStep('report');
+    }
   })
 
   const handleAnalyze = async () => {
@@ -157,8 +218,18 @@ const resumeReportMessageColor = (value: number | string) => {
       resumeReportMessageColor(report.relevance_score)
       setAnalysisProgress(100);
       setStep('report');
+      
+      toast.success('Analysis completed!', {
+        description: 'Your resume has been analyzed successfully.',
+        duration: 3000,
+      });
     } catch (err) {
       console.error("Analysis failed:", err);
+      toast.error('Analysis failed', {
+        description: 'An unexpected error occurred during analysis. Please try again.',
+        duration: 5000,
+      });
+      setStep('upload');
     }
   };
 
@@ -166,6 +237,9 @@ const resumeReportMessageColor = (value: number | string) => {
     setOutputType(type);
     setStep('generating');
     setGenerationProgress(0);
+    // Reset rating state for new generation
+    setUserRating(0);
+    setHasRated(false);
     
     // Get current data from state
     const currentData = {
@@ -173,26 +247,39 @@ const resumeReportMessageColor = (value: number | string) => {
       resume_profile: finalReport.resume_profile,
       resume_report: finalReport.resume_report
     };
-    
-    console.log("JDKEYWORDS", currentData.jd_keywords)
-    console.log("RESUMEPROFILE", currentData.resume_profile)
-    console.log("RESUMEREPORT", currentData.resume_report)
 
     try {
-      const coverLetter = await generateCoverLetterHook.mutateAsync({ 
-        jd_keywords: currentData.jd_keywords, 
-        resume_profile: currentData.resume_profile, 
-        resume_report: currentData.resume_report, 
-        pages: 1 
+      let output = ""
+      if (type == 'letter'){
+        output = await generateCoverLetterHook.mutateAsync({ 
+          jd_keywords: currentData.jd_keywords, 
+          resume_profile: currentData.resume_profile, 
+          resume_report: currentData.resume_report, 
+          pages: 1 
       });
-      
-      console.log("Generated cover letter:", coverLetter)
-      setFinalReport((prev: any) => ({...prev, cover_letter: coverLetter}))
+    }else{
+        output = await generateEmailHook.mutateAsync({
+          jd_keywords: currentData.jd_keywords,
+          resume_profile: currentData.resume_profile,
+          resume_report: currentData.resume_report
+        })
+    }
+      setFinalReport((prev: any) => ({...prev, cover_letter: output}))
       setGenerationProgress(100)
       setStep('result')
+      
+      toast.success(`${type === 'email' ? 'Email' : 'Cover letter'} generated!`, {
+        description: `Your ${type === 'email' ? 'email' : 'cover letter'} is ready for review.`,
+        duration: 3000,
+      });
     } catch (err) {
       console.error("Cover letter generation failed:", err)
+      toast.error('Generation failed', {
+        description: 'An unexpected error occurred during generation. Please try again.',
+        duration: 5000,
+      });
       setGenerationProgress(100)
+      setStep('report')
     }
   };
   
@@ -450,27 +537,9 @@ const resumeReportMessageColor = (value: number | string) => {
                 </CardTitle>
                 <CardDescription>AI is personalizing content just for you...</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-8 py-8">
+              <CardContent className="w-full flex justify-center items-center">
                 {/* Progress Bar */}
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-gray-400">Progress</span>
-                    <span className="text-purple-400 font-semibold">{generationProgress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-800 rounded-full h-3 overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-purple-600 to-pink-600 transition-all duration-300 ease-out"
-                      style={{ width: `${generationProgress}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Stage Indicators */}
-                <div className="space-y-4">
-                  {generationStages.map((stage, index) => (
-                    <StageIndicator key={index} stage={stage} index={index} />
-                  ))}
-                </div>
+                <LoadingAnimation height={220} width={130}/>
               </CardContent>
             </Card>
           </div>
@@ -495,7 +564,7 @@ const resumeReportMessageColor = (value: number | string) => {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-gray-700 text-gray-300 hover:bg-gray-800"
+                      className="border-gray-700 text-gray-500 hover:bg-gray-800 hover:text-white"
                       onClick={() => navigator.clipboard.writeText(finalReport.cover_letter)}
                     >
                       <Copy className="w-4 h-4 mr-2" />
@@ -504,7 +573,7 @@ const resumeReportMessageColor = (value: number | string) => {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-gray-700 text-gray-300 hover:bg-gray-800"
+                      className="border-gray-700 text-gray-500 hover:bg-gray-800 hover:text-white"
                     >
                       <Download className="w-4 h-4 mr-2" />
                       Download PDF
@@ -519,6 +588,29 @@ const resumeReportMessageColor = (value: number | string) => {
               </CardContent>
             </Card>
 
+            {/* Rating Section */}
+            <Card className="border-gray-800 bg-gray-900">
+              <CardHeader>
+                <CardTitle className="text-white text-center">
+                  {hasRated ? 'Thank you for your feedback!' : 'How would you rate this content?'}
+                </CardTitle>
+                <CardDescription className="text-center">
+                  {hasRated 
+                    ? `You rated this ${outputType} ${userRating} star${userRating !== 1 ? 's' : ''}`
+                    : 'Your feedback helps us improve our AI-generated content'
+                  }
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex justify-center">
+                <StarRating
+                  onRatingChange={handleRatingChange}
+                  initialRating={userRating}
+                  disabled={hasRated}
+                  size="lg"
+                />
+              </CardContent>
+            </Card>
+
             <div className="flex justify-center">
               <Button
                 onClick={() => {
@@ -526,6 +618,8 @@ const resumeReportMessageColor = (value: number | string) => {
                   setResumeFile(null);
                   setJobDescription('');
                   setOutputType(null);
+                  setUserRating(0);
+                  setHasRated(false);
                 }}
                 className="h-12 px-8 bg-purple-600 hover:bg-purple-700"
               >
