@@ -12,6 +12,8 @@ import UploadContent from '@/components/UploadContent';
 import { useUploadJD } from '@/hooks/useUploadJD';
 import { useResumeProfile } from '@/hooks/useResumeProfile';
 import { useATSCheck } from '@/hooks/useATSCheck';
+import { useResumeReport } from '@/hooks/useResumeReport';
+import { useGenerateCoverLetter } from '@/hooks/useGenerateCoverLetter';
 
 export default function Dashboard() {
   const [step, setStep] = useState<'upload' | 'analyzing' | 'report' | 'generating' | 'result'>('upload');
@@ -22,38 +24,29 @@ export default function Dashboard() {
   const [generationProgress, setGenerationProgress] = useState(0);
 
   // ATS things here
-  const [atsReport, setAtsReport] = useState<any[]>([]);
+  const [atsReport, setAtsReport] = useState<any>(null);
   const [atsMessage, setAtsMessage] = useState<string>("");
   const [atsColor, setAtsColor] = useState<string>("");
 
-  // Mock data for resume report
-  const reportData = {
-    atsScore: 85,
-    matchPercentage: 78,
-    matching: [
-      'Project Management Experience',
-      'Agile Methodologies',
-      'Team Leadership',
-      'Budget Management'
-    ],
-    missing: [
-      'Scrum Master Certification',
-      'Stakeholder Management',
-      'Risk Assessment'
-    ],
-    suggestions: [
-      'Add quantifiable achievements with metrics',
-      'Include relevant certifications prominently',
-      'Emphasize cross-functional collaboration experience',
-      'Use action verbs to start bullet points'
-    ]
-  };
+  // Final Report about the resume
+  const [ resumeReport, setResumeReport ] = useState<any>(null);
+  const [ resumeReportMessage, setResumeReportMessage ] = useState<string>("");
+  const [ resumeReportColor, setResumeReportColor ] = useState<string>("");
+  const [finalReport, setFinalReport] = useState<any>({
+    jd_keywords: {},
+    resume_profile: {},
+    resume_report: {},
+    pages: 1,
+    cover_letter: ""
+  });
+
 
   const stages = [
     { name: 'Extracting Resume Profile', status: analysisProgress > 0 ? 'complete' : 'pending' },
     { name: 'Analyzing Job Description', status: analysisProgress > 33 ? 'complete' : analysisProgress > 0 ? 'active' : 'pending' },
-    { name: 'Checking ATS Friendliness', status: analysisProgress > 66? 'complete' : analysisProgress > 33 ? 'active' : 'pending' },
-    { name: 'Generating Report', status: analysisProgress > 90? 'complete' : analysisProgress > 66 ? 'active' : 'pending' },
+    { name: 'Checking ATS Friendliness', status: analysisProgress > 50? 'complete' : analysisProgress > 33 ? 'active' : 'pending' },
+    { name: 'Checking for Job Match' , status: analysisProgress > 80? 'complete' : analysisProgress > 50 ? 'active': "pending"},
+    { name: 'Generating Report', status: analysisProgress > 90? 'complete' : analysisProgress > 80 ? 'active' : 'pending' },
   ];
 
   const generationStages = [
@@ -71,6 +64,7 @@ export default function Dashboard() {
   };
 
   const atsMessageColor = (value: number | string) => {
+    console.log("ENTERED", value)
   const num = Number(value); // convert to number just in case
   if (num >= 90){
     setAtsMessage("Excellent");
@@ -90,6 +84,26 @@ export default function Dashboard() {
   }
 };
 
+const resumeReportMessageColor = (value: number | string) => {
+  const num = Number(value); 
+  if (num >= 90){
+    setResumeReportMessage("Strong Match");
+    setResumeReportColor("text-emerald-400");
+  } else if (num >= 80){
+    setResumeReportMessage("Good Match");
+    setResumeReportColor("text-lime-400");
+  } else if (num >= 70){
+    setResumeReportMessage("Average Match");
+    setResumeReportColor("text-yellow-400");
+  } else if (num >= 60){
+    setResumeReportMessage("Weak Match");
+    setResumeReportColor("text-amber-400");
+  } else {
+    setResumeReportMessage("No Match");
+    setResumeReportColor("text-red-400");
+  }
+};
+
 
   // -------------------- React Query Hooks --------------------
   const uploadResumeHook = useResumeProfile({
@@ -98,14 +112,24 @@ export default function Dashboard() {
   });
 
   const uploadJDHook = useUploadJD({
-    onSuccess: () => setAnalysisProgress(66),
+    onSuccess: () => setAnalysisProgress(50),
     onError: (err) => console.error(err)
   });
 
   const atsCheckHook = useATSCheck({
-    onSuccess: () => setAnalysisProgress(90),
+    onSuccess: () => setAnalysisProgress(80),
     onError: (err) => console.error(err)
   });
+
+  const resumeReportHook = useResumeReport({
+    onSuccess: () => setAnalysisProgress(90),
+    onError: (err) => console.log(err)
+  })
+
+  const generateCoverLetterHook = useGenerateCoverLetter({
+    onSuccess: () => setStep('result'),
+    onError: (err) => console.log(err)
+  })
 
   const handleAnalyze = async () => {
     if (!resumeFile || !jobDescription) return;
@@ -115,14 +139,22 @@ export default function Dashboard() {
     try {
       // Step 1: Extract Resume Profile
       const resumeProfile = await uploadResumeHook.mutateAsync(resumeFile);
-
+      setFinalReport((prev: any) => ({...prev, resume_profile: resumeProfile}));
       // Step 2: Analyze Job Description
       const jdKeywords =  await uploadJDHook.mutateAsync(jobDescription);
+      setFinalReport((prev: any) => ({...prev, jd_keywords: jdKeywords}));
       // Step 3: ATS Check
       const atsreport = await atsCheckHook.mutateAsync(resumeFile);
       setAtsReport(atsreport);
-      atsMessageColor(atsReport.score || 0)
+      atsMessageColor(atsreport.score)
       // Step 4: Report ready
+      const report = await resumeReportHook.mutateAsync({
+        jd_keywords: jdKeywords,
+        resume_profile: resumeProfile
+      });
+      setFinalReport((prev: any) => ({...prev, resume_report: report}));
+      setResumeReport(report);
+      resumeReportMessageColor(report.relevance_score)
       setAnalysisProgress(100);
       setStep('report');
     } catch (err) {
@@ -130,36 +162,40 @@ export default function Dashboard() {
     }
   };
 
-  const handleGenerateCoverLetter = (type: 'email' | 'letter') => {
+  const handleGenerateCoverLetter = async (type: 'email' | 'letter') => {
     setOutputType(type);
     setStep('generating');
     setGenerationProgress(0);
     
-    // Simulate progressive generation
-    const interval = setInterval(() => {
-      setGenerationProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => setStep('result'), 500);
-          return 100;
-        }
-        return prev + 8;
+    // Get current data from state
+    const currentData = {
+      jd_keywords: finalReport.jd_keywords,
+      resume_profile: finalReport.resume_profile,
+      resume_report: finalReport.resume_report
+    };
+    
+    console.log("JDKEYWORDS", currentData.jd_keywords)
+    console.log("RESUMEPROFILE", currentData.resume_profile)
+    console.log("RESUMEREPORT", currentData.resume_report)
+
+    try {
+      const coverLetter = await generateCoverLetterHook.mutateAsync({ 
+        jd_keywords: currentData.jd_keywords, 
+        resume_profile: currentData.resume_profile, 
+        resume_report: currentData.resume_report, 
+        pages: 1 
       });
-    }, 250);
+      
+      console.log("Generated cover letter:", coverLetter)
+      setFinalReport((prev: any) => ({...prev, cover_letter: coverLetter}))
+      setGenerationProgress(100)
+      setStep('result')
+    } catch (err) {
+      console.error("Cover letter generation failed:", err)
+      setGenerationProgress(100)
+    }
   };
-
-  const mockCoverLetter = `Dear Hiring Manager,
-
-I am writing to express my strong interest in the Senior Project Manager position at TechCorp. With over 8 years of experience in project management and a proven track record of delivering complex projects on time and within budget, I am confident in my ability to contribute to your team's success.
-
-In my current role at Innovation Labs, I have successfully led cross-functional teams of up to 15 members, implementing Agile methodologies that increased project delivery speed by 40%. My experience in budget management and team leadership aligns perfectly with the requirements outlined in your job description.
-
-I am particularly drawn to TechCorp's commitment to innovation and would be excited to bring my expertise in project management to help drive your upcoming initiatives forward.
-
-Thank you for considering my application. I look forward to the opportunity to discuss how my background and skills would be a great fit for your team.
-
-Best regards,
-[Your Name]`;
+  
 
   const StageIndicator = ({ stage, index }: any) => (
     <div className="flex items-center space-x-3">
@@ -271,7 +307,7 @@ Best regards,
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-gray-400 mb-1">ATS Friendliness</p>
-                      <p className={`text-4xl font-bold ${atsColor}`}>{atsReport?.score}%</p>
+                      <p className={`text-4xl font-bold ${atsColor}`}>{atsReport?.score || 0}%</p>
                       <p className="text-sm text-gray-500 mt-1">{atsMessage}</p>
                     </div>
                     <BarChart3 className="w-16 h-16 text-emerald-400 opacity-50" />
@@ -284,8 +320,8 @@ Best regards,
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-gray-400 mb-1">Job Match</p>
-                      <p className="text-4xl font-bold text-purple-400">{reportData.matchPercentage}%</p>
-                      <p className="text-sm text-gray-500 mt-1">Strong Match</p>
+                      <p className={`text-4xl font-bold ${resumeReportColor}`}>{resumeReport?.relevance_score}%</p>
+                      <p className="text-sm text-gray-500 mt-1">{resumeReportMessage}</p>
                     </div>
                     <TrendingUp className="w-16 h-16 text-purple-400 opacity-50" />
                   </div>
@@ -305,7 +341,7 @@ Best regards,
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                    {atsReport.suggestions.map((item, index) => (
+                    {atsReport?.suggestions?.map((item: any, index: number) => (
                       <li key={index} className="flex items-start space-x-2">
                         <ChevronRight className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
                         <span className="text-sm text-gray-300">{item}</span>
@@ -315,7 +351,7 @@ Best regards,
                 </CardContent>
               </Card>
               {/* Matching Keywords */}
-              <Card className="border-gray-800 bg-gray-900">
+              <Card className="border-gray-800 bg-gray-900 w-[48%]">
                 <CardHeader>
                   <CardTitle className="flex items-center text-white">
                     <CheckCircle className="w-5 h-5 mr-2 text-emerald-400" />
@@ -324,7 +360,8 @@ Best regards,
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                    {reportData.matching.map((item, index) => (
+                    {resumeReport.matched_skills.length == 0? <h1 className='text-red-300'>No matching Skills found</h1>:
+                    resumeReport?.matched_skills?.map((item: any, index: number) => (
                       <li key={index} className="flex items-start space-x-2">
                         <ChevronRight className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
                         <span className="text-sm text-gray-300">{item}</span>
@@ -335,7 +372,7 @@ Best regards,
               </Card>
 
               {/* Missing Keywords */}
-              <Card className="border-gray-800 bg-gray-900">
+              <Card className="border-gray-800 bg-gray-900 w-[49%]">
                 <CardHeader>
                   <CardTitle className="flex items-center text-white">
                     <AlertCircle className="w-5 h-5 mr-2 text-amber-400" />
@@ -344,9 +381,29 @@ Best regards,
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                    {reportData.missing.map((item, index) => (
+                    {resumeReport?.missed_skills?.map((item: any, index: number) => (
                       <li key={index} className="flex items-start space-x-2">
                         <ChevronRight className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                        <span className="text-sm text-gray-300">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Suggestions */}
+              <Card className="border-gray-800 bg-gray-900">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-white">
+                    <Lightbulb className="w-5 h-5 mr-2 text-blue-400" />
+                    Phrasing Suggestions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {resumeReport?.phrasing_suggestions?.map((item: any, index: number) => (
+                      <li key={index} className="flex items-start space-x-2">
+                        <ChevronRight className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
                         <span className="text-sm text-gray-300">{item}</span>
                       </li>
                     ))}
@@ -439,7 +496,7 @@ Best regards,
                       variant="outline"
                       size="sm"
                       className="border-gray-700 text-gray-300 hover:bg-gray-800"
-                      onClick={() => navigator.clipboard.writeText(mockCoverLetter)}
+                      onClick={() => navigator.clipboard.writeText(finalReport.cover_letter)}
                     >
                       <Copy className="w-4 h-4 mr-2" />
                       Copy
@@ -457,7 +514,7 @@ Best regards,
               </CardHeader>
               <CardContent>
                 <div className="bg-gray-800 rounded-lg p-6 font-mono text-sm text-gray-300 whitespace-pre-wrap max-h-[500px] overflow-y-auto">
-                  {mockCoverLetter}
+                  {finalReport.cover_letter}
                 </div>
               </CardContent>
             </Card>
