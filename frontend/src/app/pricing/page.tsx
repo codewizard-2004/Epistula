@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, X, FileText, Zap, Infinity, Search, Mail, Crown, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import Image from 'next/image';
 
 export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
@@ -41,6 +43,9 @@ export default function PricingPage() {
     },
   };
 
+  const { user, profile, loading } = useAuth();
+  console.log(user?.photoURL)
+
   const router = useRouter();
 
   const handleClickFree = () => {
@@ -58,9 +63,20 @@ export default function PricingPage() {
             </div>
             <h1 className="text-2xl font-bold">Epistula</h1>
           </div>
+          <div className='flex flex-row gap-3'>
+          {user?.photoURL && (
+            <Image
+              src={user.photoURL}
+              alt={user.displayName ?? "User"}
+              width={40}
+              height={40}
+              className="rounded-full border border-gray-700"
+            />
+          )}
           <Button variant="ghost" className="text-gray-300 hover:text-black">
             Sign Out
           </Button>
+          </div>
         </div>
       </header>
 

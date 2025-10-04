@@ -1,22 +1,58 @@
 "use client";
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail, Github, Sparkles, FileText, Zap, Target, CheckCircle, Facebook } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { signInWithPopup } from 'firebase/auth';
+import { auth, db, provider } from '@/services/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function AuthPage() {
   const router = useRouter();
-  const handleGoogleAuth = () => {
-    console.log('Google auth initiated');
-    // Add your Google OAuth logic here
-    router.push("/pricing");
-  };
+  const { user, loading } = useAuth();
+  
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/dashboard"); // or /pricing if it’s a new user
+    }
+  }, [user, loading, router]);
+
+  if (user) {
+    return null; // prevents flicker while redirecting
+  }
 
   const handleGithubAuth = () => {
     console.log('GitHub auth initiated');
     // Add your GitHub OAuth logic here
   };
+
+  const signInWithGoogle = async() => {
+  const result = await signInWithPopup(auth, provider);
+  const user = result.user;
+
+  // Check if user already exists in Firestore
+  const userRef = doc(db, "users", user.uid);
+  const userSnap = await getDoc(userRef);
+
+  if (!userSnap.exists()) {
+    await setDoc(userRef, {
+      name: user.displayName,
+      email: user.email,
+      plan: "free",
+      usageLeft: 10,
+      history: [],
+      createdAt: new Date(),
+    });
+    router.push("/pricing")
+  }else{
+    router.push("/dashboard")
+  }
+
+  return user;
+}
 
   return (
     <div className="min-h-screen flex bg-gray-950">
@@ -138,7 +174,7 @@ export default function AuthPage() {
               <Button
                 variant="outline"
                 className="w-full h-12 text-base font-medium bg-white hover:bg-gray-100 text-gray-900 border-0 transition-all"
-                onClick={handleGoogleAuth}
+                onClick={signInWithGoogle}
               >
                 <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
                   <path
