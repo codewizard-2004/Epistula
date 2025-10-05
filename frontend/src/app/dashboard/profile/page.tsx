@@ -5,12 +5,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { 
   FileText, User, CreditCard, History, Trash2, Settings, 
   Crown, Calendar, Download, ArrowLeft, AlertTriangle, 
-  CheckCircle, Clock, Mail, Bell
+  CheckCircle, Clock, Mail, Bell, X, Eye,
+  Delete,
+  Trash
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useHistory } from '@/hooks/useHistory';
+import Image from 'next/image';
+import { Spinner } from '@/components/ui/shadcn-io/spinner';
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'subscription' | 'history' | 'settings'>('overview');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<any>(null);
 
   const userData = {
     name: 'John Doe',
@@ -23,36 +31,6 @@ export default function ProfilePage() {
     billingAmount: '$19/month'
   };
 
-  const historyData = [
-    {
-      id: 1,
-      type: 'Cover Letter',
-      jobTitle: 'Senior Project Manager at TechCorp',
-      date: 'Sept 28, 2025',
-      status: 'completed'
-    },
-    {
-      id: 2,
-      type: 'Email',
-      jobTitle: 'Product Manager at StartupXYZ',
-      date: 'Sept 27, 2025',
-      status: 'completed'
-    },
-    {
-      id: 3,
-      type: 'Cover Letter',
-      jobTitle: 'Team Lead at Innovation Labs',
-      date: 'Sept 25, 2025',
-      status: 'completed'
-    },
-    {
-      id: 4,
-      type: 'Cover Letter',
-      jobTitle: 'Scrum Master at Digital Solutions',
-      date: 'Sept 24, 2025',
-      status: 'completed'
-    }
-  ];
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User },
@@ -60,6 +38,35 @@ export default function ProfilePage() {
     { id: 'history', label: 'History', icon: History },
     { id: 'settings', label: 'Settings', icon: Settings }
   ];
+
+  const { user, profile, loading } = useAuth();
+  const { historyItems, loading: historyLoading, deleteHistoryItem } = useHistory({ userId: user?.uid });
+  if(!loading) console.log(profile, user)
+
+  const handleViewHistory = (item: any) => {
+    setSelectedHistoryItem(item);
+    setShowHistoryDialog(true);
+  };
+
+  const handleDownloadHistory = (item: any) => {
+    const element = document.createElement('a');
+    const file = new Blob([item.output], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = `${item.jobTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${item.type.toLowerCase().replace(' ', '_')}.txt`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  const handleDeleteHistory = async (itemId: string) => {
+    try {
+      await deleteHistoryItem(itemId);
+      setShowHistoryDialog(false);
+      setSelectedHistoryItem(null);
+    } catch (error) {
+      console.error('Failed to delete history item:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -70,7 +77,7 @@ export default function ProfilePage() {
             <Button 
               variant="ghost" 
               size="icon"
-              className="text-gray-300 hover:text-white"
+              className="text-gray-300 hover:text-black"
               onClick={() => window.history.back()}
             >
               <ArrowLeft className="w-5 h-5" />
@@ -134,31 +141,30 @@ export default function ProfilePage() {
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <div className="flex items-center space-x-6">
+                        { loading ?
+                          <Spinner/>: 
+                        user?.photoURL ?
+                        <Image 
+                          src={user.photoURL}
+                          alt={user.displayName ?? "User"}
+                          width={80}
+                          height={80}
+                          className="rounded-full border border-gray-700"
+                        />:
                         <div className="w-20 h-20 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center text-2xl font-bold">
-                          {userData.name.split(' ').map(n => n[0]).join('')}
+                          {profile?.name.slice(0,3)}
                         </div>
+                        }
                         <div>
-                          <h3 className="text-xl font-semibold text-white">{userData.name}</h3>
-                          <p className="text-gray-400">{userData.email}</p>
-                          <p className="text-sm text-gray-500 mt-1">Member since {userData.joinDate}</p>
-                        </div>
-                      </div>
-                      <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-gray-800">
-                        <div>
-                          <label className="text-sm text-gray-400 mb-2 block">Full Name</label>
-                          <input
-                            type="text"
-                            defaultValue={userData.name}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-purple-500 focus:outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm text-gray-400 mb-2 block">Email Address</label>
-                          <input
-                            type="email"
-                            defaultValue={userData.email}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:border-purple-500 focus:outline-none"
-                          />
+                          {loading? <Spinner color='white'/>:
+                          <>
+                          <h3 className="text-xl font-semibold text-white">{profile.name}</h3>
+                          <p className="text-gray-400">{user?.email}</p>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Member since {profile.createdAt ? new Date(profile.createdAt.toDate()).toLocaleDateString() : ''}
+                          </p>
+                          </>
+                          }
                         </div>
                       </div>
                     </CardContent>
@@ -174,19 +180,18 @@ export default function ProfilePage() {
                       <div className="grid md:grid-cols-3 gap-6">
                         <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-gray-400 text-sm">Credits Used</span>
+                            <span className="text-gray-400 text-sm">Credits Left</span>
                             <FileText className="w-5 h-5 text-purple-400" />
                           </div>
-                          <p className="text-3xl font-bold text-white">{userData.creditsUsed}</p>
-                          <p className="text-xs text-gray-500 mt-1">of {userData.creditsTotal}</p>
+                          <p className="text-3xl font-bold text-white">{profile?.usageLeft}</p>
                         </div>
                         <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-gray-400 text-sm">Current Plan</span>
                             <Crown className="w-5 h-5 text-yellow-400" />
                           </div>
-                          <p className="text-3xl font-bold text-white">{userData.plan}</p>
-                          <p className="text-xs text-gray-500 mt-1">{userData.billingAmount}</p>
+                          <p className="text-3xl font-bold text-white">{profile?.plan}</p>
+                          <p className="text-xs text-gray-500 mt-1">{profile?.pricing}$ per {profile?.term}</p>
                         </div>
                         <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
                           <div className="flex items-center justify-between mb-2">
@@ -310,41 +315,71 @@ export default function ProfilePage() {
                     <CardDescription>All your created cover letters and emails</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
-                      {historyData.map((item) => (
-                        <div key={item.id} className="bg-gray-800/50 rounded-lg p-4 hover:bg-gray-800 transition-colors">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                              {item.type === 'Email' ? (
-                                <Mail className="w-5 h-5 text-blue-400" />
-                              ) : (
-                                <FileText className="w-5 h-5 text-purple-400" />
-                              )}
-                              <div>
-                                <p className="text-white font-medium">{item.jobTitle}</p>
-                                <div className="flex items-center space-x-2 mt-1">
-                                  <span className="text-xs bg-gray-700 px-2 py-1 rounded text-gray-300">
-                                    {item.type}
-                                  </span>
-                                  <span className="text-xs text-gray-500 flex items-center">
-                                    <Clock className="w-3 h-3 mr-1" />
-                                    {item.date}
-                                  </span>
+                    {historyLoading ? (
+                      <div className="flex justify-center items-center py-8">
+                        <Spinner />
+                      </div>
+                    ) : historyItems.length === 0 ? (
+                      <div className="text-center py-8">
+                        <FileText className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                        <p className="text-gray-400">No history items found</p>
+                        <p className="text-gray-500 text-sm mt-2">Your generated cover letters and emails will appear here</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {historyItems.map((item) => (
+                          <div key={item.id} className="bg-gray-800/50 rounded-lg p-4 hover:bg-gray-800 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-4">
+                                {item.type === 'email' ? (
+                                  <Mail className="w-5 h-5 text-blue-400" />
+                                ) : (
+                                  <FileText className="w-5 h-5 text-purple-400" />
+                                )}
+                                <div>
+                                  <p className="text-white font-medium">{item.title}</p>
+                                  <div className="flex items-center space-x-2 mt-1">
+                                    <span className="text-xs bg-gray-700 px-2 py-1 rounded text-gray-300">
+                                      {item.type === 'email' ? 'Email' : 'Cover Letter'}
+                                    </span>
+                                    <span className="text-xs text-gray-500 flex items-center">
+                                      <Clock className="w-3 h-3 mr-1" />
+                                      {item.createdAt ? new Date(item.createdAt.toDate()).toLocaleDateString() : 'Unknown date'}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Button variant="ghost" size="sm" className="text-gray-400 hover:text-black">
-                                <Download className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="text-gray-400 hover:text-black">
-                                View
-                              </Button>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className='text-gray-400 hover:text-black'
+                                  onClick={() => handleDeleteHistory(item.id)}
+                                >
+                                  <Trash className='w-4 h-4'/>
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="text-gray-400 hover:text-black"
+                                  onClick={() => handleDownloadHistory(item)}
+                                >
+                                  <Download className="w-4 h-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="text-gray-400 hover:text-black"
+                                  onClick={() => handleViewHistory(item)}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -454,6 +489,100 @@ export default function ProfilePage() {
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* History View Dialog */}
+      {showHistoryDialog && selectedHistoryItem && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            {/* Dialog Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-800">
+              <div className="flex items-center space-x-3">
+                {selectedHistoryItem.type === 'email' ? (
+                  <Mail className="w-6 h-6 text-blue-400" />
+                ) : (
+                  <FileText className="w-6 h-6 text-purple-400" />
+                )}
+                <div>
+                  <h2 className="text-xl font-semibold text-white">{selectedHistoryItem.title}</h2>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <span className="text-xs bg-gray-700 px-2 py-1 rounded text-gray-300">
+                      {selectedHistoryItem.type === 'email' ? 'Email' : 'Cover Letter'}
+                    </span>
+                    <span className="text-xs text-gray-500 flex items-center">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {selectedHistoryItem.createdAt ? new Date(selectedHistoryItem.createdAt.toDate()).toLocaleDateString() : 'Unknown date'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
+                  onClick={() => handleDownloadHistory(selectedHistoryItem)}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-white"
+                  onClick={() => handleDeleteHistory(selectedHistoryItem.id)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-gray-400 hover:text-white"
+                  onClick={() => {
+                    setShowHistoryDialog(false);
+                    setSelectedHistoryItem(null);
+                  }}
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Dialog Content - Side by Side Layout */}
+            <div className="flex h-[calc(90vh-120px)]">
+              {/* Job Description Section */}
+              <div className="flex-1 border-r border-gray-800 p-6">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                  <FileText className="w-5 h-5 mr-2 text-blue-400" />
+                  Job Description
+                </h3>
+                <div className="bg-gray-800/50 rounded-lg p-4 h-[calc(100%-60px)] overflow-y-auto">
+                  <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                    {selectedHistoryItem.jobDescription}
+                  </p>
+                </div>
+              </div>
+
+              {/* Generated Output Section */}
+              <div className="flex-1 p-6">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                  {selectedHistoryItem.type === 'email' ? (
+                    <Mail className="w-5 h-5 mr-2 text-purple-400" />
+                  ) : (
+                    <FileText className="w-5 h-5 mr-2 text-purple-400" />
+                  )}
+                  Generated {selectedHistoryItem.type === 'email' ? 'Email' : 'Cover Letter'}
+                </h3>
+                <div className="bg-gray-800/50 rounded-lg p-4 h-[calc(100%-60px)] overflow-y-auto">
+                  <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                    {selectedHistoryItem.output}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

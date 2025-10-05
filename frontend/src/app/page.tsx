@@ -42,6 +42,8 @@ export default function AuthPage() {
       name: user.displayName,
       email: user.email,
       plan: "free",
+      pricing: 0,
+      term: "month",
       usageLeft: 10,
       history: [],
       createdAt: new Date(),

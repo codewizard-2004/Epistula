@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -14,9 +14,28 @@ import { useATSCheck } from '@/hooks/useATSCheck';
 import { useResumeReport } from '@/hooks/useResumeReport';
 import { useGenerateCoverLetter } from '@/hooks/useGenerateCoverLetter';
 import { useGenerateEmail } from '@/hooks/useGenerateEmail';
+import { useSaveHistory } from '@/hooks/useSaveHistory';
 import LoadingAnimation from '@/components/LoadingAnimation';
 import StarRating from '@/components/StarRating';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '@/services/firebase';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Spinner } from '@/components/ui/shadcn-io/spinner';
 
 export default function Dashboard() {
   const [step, setStep] = useState<'upload' | 'analyzing' | 'report' | 'generating' | 'result'>('upload');
@@ -46,6 +65,12 @@ export default function Dashboard() {
   // Rating state
   const [userRating, setUserRating] = useState<number>(0);
   const [hasRated, setHasRated] = useState<boolean>(false);
+  const { user, profile, loading } = useAuth();
+  console.log(profile)
+
+  const router = useRouter()
+  const { saveHistory } = useSaveHistory();
+
 
 
   const stages = [
@@ -116,6 +141,23 @@ export default function Dashboard() {
     setHasRated(true);
     // Here you could also send the rating to your backend for analytics
     console.log(`User rated ${outputType} with ${rating} stars`);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      toast.success('Signed out successfully', {
+        description: 'You have been logged out of your account.',
+        duration: 3000,
+      });
+      router.push('/');
+    } catch (error) {
+      console.error('Sign out error:', error);
+      toast.error('Failed to sign out', {
+        description: 'An error occurred while signing out. Please try again.',
+        duration: 5000,
+      });
+    }
   };
 
 
@@ -268,6 +310,29 @@ export default function Dashboard() {
       setGenerationProgress(100)
       setStep('result')
       
+      // Save to history if user is authenticated
+      if (user?.uid) {
+        if (hasRated){
+        await saveHistory({
+          userId: user.uid,
+          type: type,
+          jobDescription: jobDescription,
+          output: output,
+          title: '',
+          rating: userRating
+        });
+      }else{
+        await saveHistory({
+          userId: user.uid,
+          type: type,
+          jobDescription: jobDescription,
+          output: output,
+          title: '',
+          rating: userRating
+        });
+      }
+      }
+      
       toast.success(`${type === 'email' ? 'Email' : 'Cover letter'} generated!`, {
         description: `Your ${type === 'email' ? 'email' : 'cover letter'} is ready for review.`,
         duration: 3000,
@@ -319,16 +384,61 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold">Epistula</h1>
           </div>
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 bg-gray-800 px-4 py-2 rounded-lg">
+            <div className="flex items-center space-x-2 bg-gray-800 px-4 py-2 rounded-lg hover:bg-white hover:text-black">
+              {loading? <Spinner/>:profile?.plan == "free" ? 
+                <div onClick={()=>router.push("/pricing")} className="text-sm font-medium">Upgrade to pro</div>:
+              (
+                <>
               <Crown className="w-4 h-4 text-yellow-400" />
-              <span className="text-sm font-medium">Pro Plan</span>
+                <span className="text-sm font-medium">Pro Plan</span>
+                </>
+                )
+              }
             </div>
-            <Button variant="ghost" size="icon" className="text-gray-300 hover:text-white">
+            <Button 
+              variant="link" 
+              size="icon" 
+              onClick={()=>router.push("/dashboard/profile")}
+              className="text-gray-300 hover:text-black transform transition duration-300 ease-in-out hover:scale-110">
+            {loading?
+            <Spinner />:
+            user?.photoURL ?
+              <Image 
+                src={user.photoURL}
+                alt={user.displayName ?? "User"}
+                width={50}
+                height={50}
+                className="rounded-full border border-gray-700"
+              />:
               <User className="w-5 h-5" />
+            }
             </Button>
-            <Button variant="ghost" size="icon" className="text-gray-300 hover:text-white">
-              <LogOut className="w-5 h-5" />
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-gray-300 hover:text-black">
+                  <LogOut className="w-5 h-5" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="bg-gray-900 border-gray-800">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-white">Sign Out Warning</AlertDialogTitle>
+                  <AlertDialogDescription className="text-gray-300">
+                    Are you sure you want to sign out? You will lose access to your dashboard and any unsaved progress will be lost.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white">
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleSignOut}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Sign Out
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </header>

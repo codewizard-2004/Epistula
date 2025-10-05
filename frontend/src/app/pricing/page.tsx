@@ -44,7 +44,6 @@ export default function PricingPage() {
   };
 
   const { user, profile, loading } = useAuth();
-  console.log(user?.photoURL)
 
   const router = useRouter();
 
