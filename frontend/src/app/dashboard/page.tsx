@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -97,13 +97,7 @@ export default function Dashboard() {
     { name: 'Generating Report', status: analysisProgress > 90? 'complete' : analysisProgress > 80 ? 'active' : 'pending' },
   ];
 
-  const generationStages = [
-    { name: 'Analyzing Resume Highlights', status: generationProgress > 0 ? 'complete' : 'pending' },
-    { name: 'Matching Job Requirements', status: generationProgress > 25 ? 'complete' : generationProgress > 0 ? 'active' : 'pending' },
-    { name: 'Crafting Personalized Content', status: generationProgress > 50 ? 'complete' : generationProgress > 25 ? 'active' : 'pending' },
-    { name: 'Optimizing Tone & Style', status: generationProgress > 75 ? 'complete' : generationProgress > 50 ? 'active' : 'pending' },
-    { name: 'Final Polish', status: generationProgress === 100 ? 'complete' : generationProgress > 75 ? 'active' : 'pending' }
-  ];
+  // generationStages removed (unused) to satisfy linter; generationProgress is still used during generation
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -157,6 +151,14 @@ export default function Dashboard() {
     setHasRated(true);
     // Here you could also send the rating to your backend for analytics
     console.log(`User rated ${outputType} with ${rating} stars`);
+  };
+
+  // Robust helper to extract a numeric ATS score from various possible response shapes
+  const getAtsScore = (report: any): number => {
+    if (!report) return 0;
+    const raw = report?.score ?? report?.atsScore ?? report?.ats_score ?? report?.data?.score ?? report?.data?.atsScore ?? 0;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
   };
 
   const handleSignOut = async () => {
@@ -257,7 +259,7 @@ export default function Dashboard() {
   })
 
   const handleAnalyze = async () => {
-    if (profile.usageLeft < 10) {
+    if (profile.usageLeft <= 0) {
       toast.error('Insufficient usage credits', {
         description: 'You do not have enough usage credits to perform this analysis. Please upgrade your plan.',
         duration: 5000,
@@ -278,7 +280,9 @@ export default function Dashboard() {
       // Step 3: ATS Check
       const atsreport = await atsCheckHook.mutateAsync(resumeFile);
       setAtsReport(atsreport);
-      atsMessageColor(atsreport.score)
+    const derived = getAtsScore(atsreport);
+    console.log('ATS API response:', atsreport, 'derivedScore:', derived);
+    atsMessageColor(derived);
       // Step 4: Report ready
       const report = await resumeReportHook.mutateAsync({
         jd_keywords: jdKeywords,
