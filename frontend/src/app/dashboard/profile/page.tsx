@@ -13,6 +13,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useHistory } from '@/hooks/useHistory';
 import Image from 'next/image';
 import { Spinner } from '@/components/ui/shadcn-io/spinner';
+import HistoryModal from '@/components/HistoryModal';
+import DeleteAccountModal from '@/components/DeleteAccountModal';
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'subscription' | 'history' | 'settings'>('overview');
@@ -446,144 +448,18 @@ export default function ProfilePage() {
 
       {/* Delete Account Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <Card className="border-red-500/50 bg-gray-900 max-w-md w-full">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center">
-                <AlertTriangle className="w-6 h-6 mr-2 text-red-400" />
-                Delete Account?
-              </CardTitle>
-              <CardDescription>This action cannot be undone</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-gray-300">
-                Are you absolutely sure you want to delete your account? All your data, including:
-              </p>
-              <ul className="list-disc list-inside text-gray-400 space-y-1 text-sm">
-                <li>Generated cover letters and emails</li>
-                <li>Resume analysis history</li>
-                <li>Account settings and preferences</li>
-                <li>Active subscription (if any)</li>
-              </ul>
-              <p className="text-red-400 font-semibold text-sm">
-                This action will be permanent and cannot be reversed.
-              </p>
-              <div className="flex space-x-3 pt-4">
-                <Button 
-                  variant="outline" 
-                  className="flex-1 border-gray-700"
-                  onClick={() => setShowDeleteModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  className="flex-1 bg-red-600 hover:bg-red-700"
-                  onClick={() => {
-                    // Handle account deletion
-                    console.log('Account deleted');
-                    setShowDeleteModal(false);
-                  }}
-                >
-                  Yes, Delete Account
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <DeleteAccountModal setShowDeleteModal={setShowDeleteModal} />
       )}
 
       {/* History View Dialog */}
       {showHistoryDialog && selectedHistoryItem && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
-            {/* Dialog Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-800">
-              <div className="flex items-center space-x-3">
-                {selectedHistoryItem.type === 'email' ? (
-                  <Mail className="w-6 h-6 text-blue-400" />
-                ) : (
-                  <FileText className="w-6 h-6 text-purple-400" />
-                )}
-                <div>
-                  <h2 className="text-xl font-semibold text-white">{selectedHistoryItem.title}</h2>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <span className="text-xs bg-gray-700 px-2 py-1 rounded text-gray-300">
-                      {selectedHistoryItem.type === 'email' ? 'Email' : 'Cover Letter'}
-                    </span>
-                    <span className="text-xs text-gray-500 flex items-center">
-                      <Clock className="w-3 h-3 mr-1" />
-                      {selectedHistoryItem.createdAt ? new Date(selectedHistoryItem.createdAt.toDate()).toLocaleDateString() : 'Unknown date'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
-                  onClick={() => handleDownloadHistory(selectedHistoryItem)}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-white"
-                  onClick={() => handleDeleteHistory(selectedHistoryItem.id)}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="text-gray-400 hover:text-white"
-                  onClick={() => {
-                    setShowHistoryDialog(false);
-                    setSelectedHistoryItem(null);
-                  }}
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Dialog Content - Side by Side Layout */}
-            <div className="flex h-[calc(90vh-120px)]">
-              {/* Job Description Section */}
-              <div className="flex-1 border-r border-gray-800 p-6">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                  <FileText className="w-5 h-5 mr-2 text-blue-400" />
-                  Job Description
-                </h3>
-                <div className="bg-gray-800/50 rounded-lg p-4 h-[calc(100%-60px)] overflow-y-auto">
-                  <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
-                    {selectedHistoryItem.jobDescription}
-                  </p>
-                </div>
-              </div>
-
-              {/* Generated Output Section */}
-              <div className="flex-1 p-6">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-                  {selectedHistoryItem.type === 'email' ? (
-                    <Mail className="w-5 h-5 mr-2 text-purple-400" />
-                  ) : (
-                    <FileText className="w-5 h-5 mr-2 text-purple-400" />
-                  )}
-                  Generated {selectedHistoryItem.type === 'email' ? 'Email' : 'Cover Letter'}
-                </h3>
-                <div className="bg-gray-800/50 rounded-lg p-4 h-[calc(100%-60px)] overflow-y-auto">
-                  <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
-                    {selectedHistoryItem.output}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <HistoryModal
+          selectedHistoryItem={selectedHistoryItem}
+          handleDownloadHistory={handleDownloadHistory}
+          handleDeleteHistory={handleDeleteHistory}
+          setShowHistoryDialog={setShowHistoryDialog}
+          setSelectedHistoryItem={setSelectedHistoryItem}
+        />
       )}
     </div>
   );

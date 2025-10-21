@@ -19,7 +19,7 @@ import LoadingAnimation from '@/components/LoadingAnimation';
 import StarRating from '@/components/StarRating';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, increment, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/services/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
@@ -70,6 +70,22 @@ export default function Dashboard() {
 
   const router = useRouter()
   const { saveHistory } = useSaveHistory();
+
+  const decrementUsage =async (uid: string) =>{
+    const userRef = doc(db, "users", uid);
+    const snap = await getDoc(userRef);
+
+    if (!snap.exists()) throw new Error("User not found");
+
+    const data = snap.data();
+    if (data.usageLeft > 0) {
+      await updateDoc(userRef, {
+        usageLeft: increment(-1),
+      });
+    } else {
+      throw new Error("Usage limit reached");
+    }
+}
 
 
 
@@ -211,7 +227,10 @@ export default function Dashboard() {
   })
 
   const generateCoverLetterHook = useGenerateCoverLetter({
-    onSuccess: () => setStep('result'),
+    onSuccess: () => {
+      setStep('result')
+      decrementUsage(user!.uid);
+    },
     onError: (err) => {
       console.error('Cover letter generation failed:', err);
       toast.error('Failed to generate cover letter', {
@@ -223,7 +242,10 @@ export default function Dashboard() {
   })
 
   const generateEmailHook = useGenerateEmail({
-    onSuccess: () => setStep('result'),
+    onSuccess: () => {
+      setStep('result')
+      decrementUsage(user!.uid);
+    },
     onError: (err) => {
       console.error('Email generation failed:', err);
       toast.error('Failed to generate email', {
@@ -235,6 +257,13 @@ export default function Dashboard() {
   })
 
   const handleAnalyze = async () => {
+    if (profile.usageLeft < 10) {
+      toast.error('Insufficient usage credits', {
+        description: 'You do not have enough usage credits to perform this analysis. Please upgrade your plan.',
+        duration: 5000,
+      });
+      return;
+    }
     if (!resumeFile || !jobDescription) return;
     setStep('analyzing');
     setAnalysisProgress(0);
