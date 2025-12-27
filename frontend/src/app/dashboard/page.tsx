@@ -668,6 +668,22 @@ export default function Dashboard() {
                 </Button>
               </CardContent>
             </Card>
+
+            <Card className="border-purple-500/50 bg-gradient-to-br from-gray-900 to-purple-900/20">
+              <CardHeader className="text-center">
+                <CardTitle className="text-2xl text-white">Search for similar Jobs</CardTitle>
+                <CardDescription>Our AI will surf across platforms to find suitable jobs</CardDescription>
+              </CardHeader>
+              <CardContent className="flex justify-center space-x-4">
+                <Button
+                  onClick={() => alert('Feature coming soon!')}
+                  className="h-12 px-8 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                >
+                  <FileOutput className="w-5 h-5 mr-2" />
+                  Search for Jobs
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         )}
 
