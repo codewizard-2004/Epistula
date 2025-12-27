@@ -3,10 +3,10 @@
 ## and uploading resume to get resumeProfile
 ## To check the ATS friendliness of the resume
 from fastapi import APIRouter, HTTPException, UploadFile, File
-from schemas import JDKeyWords, ResumeProfile, ATSCheckResult
-from pipelines.preprocessing import generate_jd_keywords, get_resume_profile
-from pipelines.analysis import checkATS
-from config import Settings
+from app.schemas import JDKeyWords, ResumeProfile, ATSCheckResult
+from app.pipelines.preprocessing import generate_jd_keywords, get_resume_profile
+from app.pipelines.analysis import checkATS
+from app.config import Settings
 from pydantic import BaseModel
 from pypdf import PdfReader
 from io import BytesIO

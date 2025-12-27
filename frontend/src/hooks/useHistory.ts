@@ -31,6 +31,8 @@ export function useHistory({ userId }: UseHistoryOptions = {}) {
       return;
     }
 
+    console.debug('[useHistory] subscribing for userId:', userId);
+
     setLoading(true);
     setError(null);
 
@@ -56,7 +58,7 @@ export function useHistory({ userId }: UseHistoryOptions = {}) {
       },
       (err) => {
         console.error('Error fetching history:', err);
-        setError('Failed to load history');
+        setError(err?.message ?? 'Failed to load history');
         setLoading(false);
       }
     );
@@ -74,7 +76,7 @@ export function useHistory({ userId }: UseHistoryOptions = {}) {
     } catch (error) {
       console.error('Failed to delete history item:', error);
       toast.error('Failed to delete item', {
-        description: 'There was an error deleting the history item. Please try again.',
+        description: (error as Error)?.message ?? 'There was an error deleting the history item. Please try again.',
         duration: 5000,
       });
     }

@@ -154,16 +154,16 @@ export default function ProfilePage() {
                           className="rounded-full border border-gray-700"
                         />:
                         <div className="w-20 h-20 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center text-2xl font-bold">
-                          {profile?.name.slice(0,3)}
+                          {(profile?.name ?? user?.displayName ?? '').slice(0,3)}
                         </div>
                         }
                         <div>
                           {loading? <Spinner color='white'/>:
                           <>
-                          <h3 className="text-xl font-semibold text-white">{profile.name}</h3>
-                          <p className="text-gray-400">{user?.email}</p>
+                          <h3 className="text-xl font-semibold text-white">{profile?.name ?? user?.displayName ?? 'User'}</h3>
+                          <p className="text-gray-400">{user?.email ?? profile?.email ?? ''}</p>
                           <p className="text-sm text-gray-500 mt-1">
-                            Member since {profile.createdAt ? new Date(profile.createdAt.toDate()).toLocaleDateString() : ''}
+                            Member since {profile?.createdAt ? new Date(profile.createdAt.toDate()).toLocaleDateString() : ''}
                           </p>
                           </>
                           }

@@ -259,7 +259,8 @@ export default function Dashboard() {
   })
 
   const handleAnalyze = async () => {
-    if (profile.usageLeft <= 0) {
+    // Ensure we don't read `usageLeft` from a null `profile`
+    if ((profile?.usageLeft ?? 0) <= 0) {
       toast.error('Insufficient usage credits', {
         description: 'You do not have enough usage credits to perform this analysis. Please upgrade your plan.',
         duration: 5000,

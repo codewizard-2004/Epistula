@@ -4,7 +4,7 @@
 ##     * Resume uploaded(PDF/DOCX) by the user  
 ## Functions in the file uses schemas defined in schema.py for inputs and outputs. 
 
-from schemas import JDKeyWords, ResumeProfile
+from app.schemas import JDKeyWords, ResumeProfile
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 

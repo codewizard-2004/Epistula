@@ -4,7 +4,6 @@
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
-from langchain_community.tools.tavily_search import TavilySearchResults
 import os
 
 
@@ -38,6 +37,3 @@ class Settings:
 
     def get_environment(self) -> str:
         return self._stage if self._stage else "development"
-    
-    def load_tavily_search(self, max_results: int = 2) -> TavilySearchResults:
-        return TavilySearchResults(max_results = max_results)

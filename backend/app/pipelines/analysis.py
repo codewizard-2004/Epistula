@@ -6,7 +6,7 @@
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-from schemas import JDKeyWords, ResumeProfile, ResumeReport, ATSCheckResult
+from app.schemas import JDKeyWords, ResumeProfile, ResumeReport, ATSCheckResult
 
 def checkATS(resume: str, llm)->ATSCheckResult:
     

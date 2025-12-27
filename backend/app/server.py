@@ -1,8 +1,8 @@
 # This is the main entry point for the backend server application.
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from config import Settings
-from routes import upload, generation
+from app.config import Settings
+from app.routes import upload, generation
 
 app = FastAPI(title="Epistula Backend", version="1.0.0")
 environment = Settings().get_environment()

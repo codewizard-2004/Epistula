@@ -4,9 +4,9 @@
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from schemas import JDKeyWords, ResumeProfile, ResumeReport
-from pipelines.analysis import generate_cover_letter, generate_cover_email, generate_resume_report
-from config import Settings
+from app.schemas import JDKeyWords, ResumeProfile, ResumeReport
+from app.pipelines.analysis import generate_cover_letter, generate_cover_email, generate_resume_report
+from app.config import Settings
 
 router = APIRouter()
 model = Settings().load_gemini()
